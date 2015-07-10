@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ResourceExporter;
 
@@ -10,12 +11,16 @@ namespace ResourceExporterTest
     [TestClass]
     public class EmbeddedResourceExtractorTest
     {
+        private static string _workingDirectory = "";
+
         private const string BuildConfiguration = 
 #if DEBUG
             "Debug";
 #else
             "Release";
 #endif
+
+        private const string TestProjectRelativePath = @"..\..\..\..\ClassLibraryWithEmbeddedResources";
 
         private string AssemblyDirectory
         {
@@ -33,14 +38,32 @@ namespace ResourceExporterTest
             get
             {
                 return string.Format(
-                    @"..\..\..\..\ClassLibraryWithEmbeddedResources\bin\{0}\ClassLibraryWithEmbeddedResources.dll",
-                    BuildConfiguration);
+                    @"{0}\bin\{1}\ClassLibraryWithEmbeddedResources.dll",
+                    TestProjectRelativePath, BuildConfiguration);
             }
+        }
+
+        private string TestProjectFullPath
+        {
+            get { return Path.GetFullPath(AssemblyDirectory + TestProjectRelativePath); }
         }
 
         private string TestAssemblyFullPath
         {
             get { return Path.GetFullPath(AssemblyDirectory + TestAssemblyRelativePath); }
+        }
+
+        [ClassInitialize]
+        public static void Setup(TestContext textContext)
+        {
+            _workingDirectory = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(_workingDirectory);
+        }
+
+        [ClassCleanup]
+        public static void TearDown()
+        {
+            Directory.Delete(_workingDirectory, true);
         }
 
         [TestMethod]
@@ -114,6 +137,49 @@ namespace ResourceExporterTest
                     FileType = "Application Extension",
                     Size = 345088
                 }, actual);
+        }
+
+        [TestMethod]
+        public void TestExtractEmbeddedResourceToDirectory()
+        {
+            const string resourceName = "huckleberryfinn.epub";
+            var extractor = new EmbeddedResourceExtractor(TestAssemblyFullPath);
+            extractor.ExtractEmbeddedResourceToDirectory(resourceName, _workingDirectory);
+            Assert.IsTrue(File.Exists(Path.Combine(_workingDirectory, resourceName)));
+            byte[] expectedHash, actualHash;
+            using (var sha1 = SHA1.Create())
+            using (var expectedFile = File.OpenRead(Path.Combine(TestProjectFullPath, resourceName)))
+                expectedHash = sha1.ComputeHash(expectedFile);
+            using (var sha1 = SHA1.Create())
+            using (var actualFile = File.OpenRead(Path.Combine(_workingDirectory, resourceName)))
+                actualHash = sha1.ComputeHash(actualFile);
+            CollectionAssert.AreEqual(expectedHash, actualHash);
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(FileNotFoundException))]
+        public void TestExtractEmbeddedResourceToFileThrows()
+        {
+            var extractor = new EmbeddedResourceExtractor(TestAssemblyFullPath);
+            extractor.ExtractEmbeddedResourceToFile("asdf.txt", _workingDirectory);
+        }
+
+        [TestMethod]
+        public void TestExtractEmbeddedResourceToFile()
+        {
+            const string fileName = "abc.txt";
+            const string resourceName = "bible-kjv.txt";
+            var extractor = new EmbeddedResourceExtractor(TestAssemblyFullPath);
+            extractor.ExtractEmbeddedResourceToFile(resourceName, Path.Combine(_workingDirectory, fileName));
+            Assert.IsTrue(File.Exists(Path.Combine(_workingDirectory, fileName)));
+            byte[] expectedHash, actualHash;
+            using (var sha1 = SHA1.Create())
+            using (var expectedFile = File.OpenRead(Path.Combine(TestProjectFullPath, resourceName)))
+                expectedHash = sha1.ComputeHash(expectedFile);
+            using (var sha1 = SHA1.Create())
+            using (var actualFile = File.OpenRead(Path.Combine(_workingDirectory, fileName)))
+                actualHash = sha1.ComputeHash(actualFile);
+            CollectionAssert.AreEqual(expectedHash, actualHash);
         }
     }
 }
