@@ -46,8 +46,23 @@ namespace ResourceExporter
             return CreateEmbeddedResourceInfo(_assembly, GetAssemblyName() + "." + resourceName);
         }
 
-        //public void ExtractEmbeddedResourceToDirectory(string resourceName, string targetDirectoryPath)
-        //public void ExtractEmbeddedResourceToFile(string resourceName, string extractedFilePath)
+        public void ExtractEmbeddedResourceToDirectory(string resourceName, string targetDirectoryPath)
+        {
+            ExtractEmbeddedResourceToFile(resourceName, Path.Combine(targetDirectoryPath, resourceName));
+        }
+
+        public void ExtractEmbeddedResourceToFile(string resourceName, string extractedFilePath)
+        {
+            using (var resourceStream = _assembly.GetManifestResourceStream(GetAssemblyName() + "." + resourceName))
+            {
+                if (resourceStream == null)
+                    throw new FileNotFoundException(resourceName);
+                using (var binaryReader = new BinaryReader(resourceStream))
+                using (var fileStream = new FileStream(extractedFilePath, FileMode.OpenOrCreate))
+                using (var binaryWriter = new BinaryWriter(fileStream))
+                    binaryWriter.Write(binaryReader.ReadBytes((int)resourceStream.Length));
+            }
+        }
 
         #region Private EmbeddedResourceInfoEnumerator class for IEnumerable<EmbeddedResourceInfo>
         private class EmbeddedResourceInfoEnumerator : IEnumerable<EmbeddedResourceInfo>
