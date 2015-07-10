@@ -75,6 +75,7 @@ namespace ResourceExporterTest
             CollectionAssert.AreEqual(new[]
                 {
                     "bible-kjv.txt",
+                    "Folder.license.txt",
                     "fotr.pdf",
                     "huckleberryfinn.epub",
                     "hypertrm.dll",
@@ -88,7 +89,7 @@ namespace ResourceExporterTest
             var extractor = new EmbeddedResourceExtractor(TestAssemblyFullPath);
             var actual = extractor.GetEmbeddedResourceInfos().ToArray();
             Array.Sort(actual,
-                (i1, i2) => string.Compare(i1.FileName, i2.FileName, StringComparison.Ordinal));
+                (i1, i2) => string.Compare(i1.FileName, i2.FileName, StringComparison.OrdinalIgnoreCase));
             var expected = new[]
             {
                 new EmbeddedResourceInfo
@@ -96,6 +97,12 @@ namespace ResourceExporterTest
                     FileName = "bible-kjv.txt",
                     FileType = "Text Document",
                     Size = 4452069
+                },
+                new EmbeddedResourceInfo
+                {
+                    FileName = "Folder.license.txt",
+                    FileType = "Text Document",
+                    Size = 1316
                 },
                 new EmbeddedResourceInfo
                 {
